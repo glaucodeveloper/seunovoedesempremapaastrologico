@@ -1,0 +1,15 @@
+{
+  "name": "seunovoedesempremapaastrologico",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Mapa astrológico local com interpretação privada via NVIDIA NIM API",
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check server.mjs && node scripts/check-config.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

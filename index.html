@@ -710,6 +710,37 @@ footer strong { margin-bottom: 3px; color: var(--text-soft); }
   .solar-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+
+.interpretation-result {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.interpretation-result-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .09em;
+}
+.interpretation-text {
+  color: var(--text-soft);
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.75;
+}
+#simulateCheckout[aria-busy="true"] {
+  opacity: .65;
+  pointer-events: none;
+}
+
 </style>
 </head>
 
@@ -1038,6 +1069,15 @@ footer strong { margin-bottom: 3px; color: var(--text-soft); }
         <button id="simulateCheckout" class="button primary">
           Continuar para interpretação
         </button>
+
+        
+        <section id="interpretationResult" class="interpretation-result" hidden>
+          <div class="interpretation-result-head">
+            <span>INTERPRETAÇÃO</span>
+            <strong id="interpretationModel">NVIDIA NIM</strong>
+          </div>
+          <div id="interpretationText" class="interpretation-text"></div>
+        </section>
 
         <div id="checkoutMessage" class="checkout-message" hidden>
           Checkout demonstrativo pronto. Conecte este botão ao seu fluxo real de pagamento
@@ -1386,9 +1426,7 @@ $("useExample").addEventListener("click", async () => {
   await update();
 });
 
-$("simulateCheckout").addEventListener("click", () => {
-  $("checkoutMessage").hidden = false;
-});
+
 
 renderRules();
 update();
@@ -1414,6 +1452,59 @@ document.getElementById("themeToggle")?.addEventListener("click", () => {
 });
 syncThemeButton();
 
-  </script>
+  
+async function requestInterpretation() {
+  const button = $("simulateCheckout");
+  const result = $("interpretationResult");
+  const text = $("interpretationText");
+  const model = $("interpretationModel");
+
+  button.setAttribute("aria-busy", "true");
+  const originalLabel = button.textContent;
+  button.textContent = "Interpretando…";
+  result.hidden = false;
+  text.textContent = "Construindo a leitura a partir do seu mapa…";
+
+  try {
+    const payload = {
+      map: {
+        sol: $("sunName")?.textContent || "",
+        persona: $("personaName")?.textContent || "",
+        data: $("metaDate")?.textContent || "",
+        hora: $("metaTime")?.textContent || "",
+        local: $("metaPlace")?.textContent || "",
+        nascerDoSol: $("sunriseValue")?.textContent || "",
+        meioDiaSolar: $("solarNoonValue")?.textContent || "",
+        porDoSol: $("sunsetValue")?.textContent || "",
+        fuso: $("timezoneValue")?.textContent || "",
+        horarioDeVerao: $("dstValue")?.textContent || ""
+      }
+    };
+
+    const response = await fetch("/api/interpret", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.message || "Falha na interpretação.");
+
+    model.textContent = body.model || "NVIDIA NIM";
+    text.textContent = body.content;
+    result.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    text.textContent =
+      "Não foi possível executar a interpretação agora. " +
+      (error?.message || "Verifique a configuração da NVIDIA API.");
+  } finally {
+    button.removeAttribute("aria-busy");
+    button.textContent = originalLabel;
+  }
+}
+
+$("simulateCheckout")?.addEventListener("click", requestInterpretation);
+
+</script>
 </body>
 </html>

@@ -11,3 +11,5 @@ build/
 .tmp/
 .vscode/
 .idea/
+private/
+.backup-nvidia-*/

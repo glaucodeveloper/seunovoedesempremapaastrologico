@@ -1,0 +1,89 @@
+name: NVIDIA inference check
+
+on:
+  workflow_dispatch:
+    inputs:
+      live_test:
+        description: "Executar uma inferência real?"
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "server.mjs"
+      - "package.json"
+      - ".env.example"
+      - "scripts/**"
+      - ".github/workflows/nvidia-inference.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Criar .env privado
+        shell: bash
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_MODEL: ${{ vars.NVIDIA_MODEL }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${NVIDIA_API_KEY:-}" ]]; then
+            echo "::error::Secret NVIDIA_API_KEY não configurado"
+            exit 1
+          fi
+
+          cat > .env <<EOF_ENV
+          NVIDIA_API_KEY=${NVIDIA_API_KEY}
+          NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+          NVIDIA_MODEL=${NVIDIA_MODEL:-meta/llama-3.3-70b-instruct}
+          NVIDIA_TEMPERATURE=0.35
+          NVIDIA_TOP_P=0.80
+          NVIDIA_MAX_TOKENS=2400
+          HOST=127.0.0.1
+          PORT=8080
+          EOF_ENV
+
+          chmod 600 .env
+
+      - name: Verificar projeto
+        run: npm run check
+
+      - name: Subir servidor no runner
+        run: |
+          node server.mjs > /tmp/seunovo.log 2>&1 &
+          echo $! > /tmp/seunovo.pid
+
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:8080/api/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          cat /tmp/seunovo.log
+          exit 1
+
+      - name: Smoke test
+        env:
+          LIVE_NVIDIA_TEST: ${{ inputs.live_test == true && '1' || '0' }}
+        run: npm run smoke
+
+      - name: Limpar .env
+        if: always()
+        run: rm -f .env
