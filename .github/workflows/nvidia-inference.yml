@@ -8,6 +8,7 @@ on:
         required: false
         default: false
         type: boolean
+
   push:
     branches: [main]
     paths:
@@ -28,12 +29,38 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
+
+      - name: Materializar prompt privado
+        shell: bash
+        env:
+          NVIDIA_SYSTEM_PROMPT_B64: ${{ secrets.NVIDIA_SYSTEM_PROMPT_B64 }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${NVIDIA_SYSTEM_PROMPT_B64:-}" ]]; then
+            echo "::error::Secret NVIDIA_SYSTEM_PROMPT_B64 não configurado"
+            exit 1
+          fi
+
+          mkdir -p private
+          printf '%s' "$NVIDIA_SYSTEM_PROMPT_B64" \
+            | base64 --decode \
+            > private/prompt-mestre-privado.md
+
+          chmod 600 private/prompt-mestre-privado.md
+
+          if [[ ! -s private/prompt-mestre-privado.md ]]; then
+            echo "::error::Prompt privado foi materializado vazio"
+            exit 1
+          fi
+
+          echo "Prompt privado materializado no runner."
 
       - name: Criar .env privado
         shell: bash
@@ -66,11 +93,14 @@ jobs:
 
       - name: Subir servidor no runner
         run: |
+          set -euo pipefail
+
           node server.mjs > /tmp/seunovo.log 2>&1 &
           echo $! > /tmp/seunovo.pid
 
           for i in {1..20}; do
             if curl -fsS http://127.0.0.1:8080/api/health >/dev/null; then
+              echo "Servidor pronto."
               exit 0
             fi
             sleep 1
@@ -84,6 +114,9 @@ jobs:
           LIVE_NVIDIA_TEST: ${{ inputs.live_test == true && '1' || '0' }}
         run: npm run smoke
 
-      - name: Limpar .env
+      - name: Limpar segredos materializados
         if: always()
-        run: rm -f .env
+        shell: bash
+        run: |
+          rm -f .env
+          rm -f private/prompt-mestre-privado.md
