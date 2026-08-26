@@ -111,7 +111,6 @@ jobs:
 
       - name: Smoke test
         timeout-minutes: 4
-        timeout-minutes: 2
         env:
           LIVE_NVIDIA_TEST: ${{ inputs.live_test == true && '1' || '0' }}
         run: npm run smoke

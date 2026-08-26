@@ -1095,6 +1095,7 @@ footer strong { margin-bottom: 3px; color: var(--text-soft); }
     <p>Uma proposta local de leitura do ciclo anual e diário.</p>
   </footer>
 
+  <script src="./api-config.js"></script>
   <script>
 
 const signs = [
@@ -1489,7 +1490,15 @@ async function requestInterpretation() {
   let firstToken = true;
 
   try {
-    const response = await fetch("/api/interpret/stream", {
+    const apiBase = String(window.SNES_API_BASE || "").replace(/\/+$/, "");
+
+    if (!apiBase) {
+      throw new Error(
+        "Serviço de interpretação ainda não foi publicado. Configure o backend."
+      );
+    }
+
+    const response = await fetch(`${apiBase}/api/interpret/stream`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -1515,7 +1524,8 @@ async function requestInterpretation() {
       let event = "message";
       let data = "";
 
-      for (const line of block.split(/?
+      for (const line of block.split(/
+?
 /)) {
         if (line.startsWith("event:")) event = line.slice(6).trim();
         if (line.startsWith("data:")) data += line.slice(5).trim();

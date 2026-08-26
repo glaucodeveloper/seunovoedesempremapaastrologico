@@ -1,0 +1,14 @@
+{
+  "name": "seunovoedesempremapaastrologico-api",
+  "main": "index.js",
+  "compatibility_date": "2026-08-25",
+  "workers_dev": true,
+  "vars": {
+    "NVIDIA_BASE_URL": "https://integrate.api.nvidia.com/v1",
+    "NVIDIA_MODEL": "meta/llama-3.3-70b-instruct",
+    "NVIDIA_TEMPERATURE": "0.35",
+    "NVIDIA_TOP_P": "0.80",
+    "NVIDIA_MAX_TOKENS": "2400",
+    "ALLOWED_ORIGIN": "https://glaucodeveloper.github.io"
+  }
+}
