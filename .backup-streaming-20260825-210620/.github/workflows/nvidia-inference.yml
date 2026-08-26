@@ -9,6 +9,15 @@ on:
         default: false
         type: boolean
 
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "server.mjs"
+      - "package.json"
+      - ".env.example"
+      - "scripts/**"
+      - ".github/workflows/nvidia-inference.yml"
 
 permissions:
   contents: read
@@ -101,7 +110,7 @@ jobs:
           exit 1
 
       - name: Smoke test
-        timeout-minutes: 4
+        timeout-minutes: 2
         env:
           LIVE_NVIDIA_TEST: ${{ inputs.live_test == true && '1' || '0' }}
         run: npm run smoke

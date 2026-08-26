@@ -9,6 +9,15 @@ on:
         default: false
         type: boolean
 
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "server.mjs"
+      - "package.json"
+      - ".env.example"
+      - "scripts/**"
+      - ".github/workflows/nvidia-inference.yml"
 
 permissions:
   contents: read
