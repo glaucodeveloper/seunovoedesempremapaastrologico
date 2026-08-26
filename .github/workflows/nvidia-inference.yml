@@ -81,7 +81,7 @@ jobs:
           NVIDIA_MODEL=${NVIDIA_MODEL:-meta/llama-3.3-70b-instruct}
           NVIDIA_TEMPERATURE=0.35
           NVIDIA_TOP_P=0.80
-          NVIDIA_MAX_TOKENS=2400
+          NVIDIA_MAX_TOKENS=512
           HOST=127.0.0.1
           PORT=8080
           EOF_ENV
@@ -110,6 +110,7 @@ jobs:
           exit 1
 
       - name: Smoke test
+        timeout-minutes: 2
         env:
           LIVE_NVIDIA_TEST: ${{ inputs.live_test == true && '1' || '0' }}
         run: npm run smoke
