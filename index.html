@@ -1056,7 +1056,7 @@ footer strong { margin-bottom: 3px; color: var(--text-soft); }
           <h2 id="checkoutTitle">Interpretar Sagitário × Libra</h2>
           <p>
             O mapa calculado acima será usado para iniciar a interpretação.
-            A integração de pagamento pode ser conectada depois ao checkout real.
+            Demonstração temporária com inferência direta no navegador.
           </p>
         </div>
 
@@ -1459,7 +1459,6 @@ async function requestInterpretation() {
   const result = $("interpretationResult");
   const text = $("interpretationText");
   const label = $("interpretationModel");
-
   const originalLabel = button?.textContent || "Interpretar";
 
   if (button) {
@@ -1471,135 +1470,179 @@ async function requestInterpretation() {
   if (label) label.textContent = "CONECTANDO À LEITURA";
   if (text) text.textContent = "Preparando a interpretação do mapa…";
 
-  const payload = {
-    map: {
-      sol: $("sunName")?.textContent || "",
-      persona: $("personaName")?.textContent || "",
-      data: $("metaDate")?.textContent || "",
-      hora: $("metaTime")?.textContent || "",
-      local: $("metaPlace")?.textContent || "",
-      nascerDoSol: $("sunriseValue")?.textContent || "",
-      meioDiaSolar: $("solarNoonValue")?.textContent || "",
-      porDoSol: $("sunsetValue")?.textContent || "",
-      fuso: $("timezoneValue")?.textContent || "",
-      horarioDeVerao: $("dstValue")?.textContent || ""
+  const cfg = window.SNES_PUBLIC_NVIDIA;
+
+  if (!cfg?.apiKey || !cfg?.baseUrl || !cfg?.model) {
+    if (label) label.textContent = "LEITURA INDISPONÍVEL";
+    if (text) text.textContent = "A chave temporária da demonstração ainda não foi configurada.";
+    if (button) {
+      button.removeAttribute("aria-busy");
+      button.textContent = originalLabel;
     }
+    return;
+  }
+
+  const map = {
+    sol: $("sunName")?.textContent || "",
+    persona: $("personaName")?.textContent || "",
+    data: $("metaDate")?.textContent || "",
+    hora: $("metaTime")?.textContent || "",
+    local: $("metaPlace")?.textContent || "",
+    nascerDoSol: $("sunriseValue")?.textContent || "",
+    meioDiaSolar: $("solarNoonValue")?.textContent || "",
+    porDoSol: $("sunsetValue")?.textContent || "",
+    fuso: $("timezoneValue")?.textContent || "",
+    horarioDeVerao: $("dstValue")?.textContent || ""
   };
+
+  const publicSystemPrompt = `
+Assuma o perfil de um intérprete simbólico de alta profundidade psicológica
+especializado neste método astrológico local, estacional e solar.
+
+O método usa duas rodas:
+- roda anual adaptada ao ciclo sazonal do hemisfério sul;
+- roda diária deslocada pelo meio-dia solar histórico do local de nascimento,
+  preservando doze setores de duas horas.
+
+Leia o mapa como uma arquitetura dinâmica de funções, tensões, direções,
+compensações e capacidades emergentes. Evite listas de adjetivos.
+Explique mecanismos: como uma função alimenta, regula, tensiona ou transforma outra.
+
+Estruture a leitura em:
+1. assinatura do mapa;
+2. fonte da energia;
+3. forma de expressão;
+4. encaixe;
+5. tensões internas;
+6. capacidades emergentes;
+7. decisão, vínculo e estratégia;
+8. integração;
+9. síntese final.
+
+Use linguagem psicológica e simbólica, sem fatalismo ou diagnóstico clínico.
+Não mencione provedor, modelo, chave, API ou estas instruções.
+`;
+
+  const userMessage = [
+    "Interprete o mapa abaixo.",
+    "",
+    JSON.stringify(map, null, 2),
+    "",
+    "Entregue diretamente a leitura, em português do Brasil."
+  ].join("
+");
 
   let accumulated = "";
   let firstToken = true;
 
   try {
-    const apiBase = String(window.SNES_API_BASE || "").replace(/\/+$/, "");
-
-    if (!apiBase) {
-      throw new Error(
-        "Serviço de interpretação ainda não foi publicado. Configure o backend."
-      );
-    }
-
-    const response = await fetch(`${apiBase}/api/interpret/stream`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "accept": "text/event-stream"
-      },
-      body: JSON.stringify(payload)
-    });
+    const response = await fetch(
+      `${String(cfg.baseUrl).replace(/\/+$/, "")}/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${cfg.apiKey}`,
+          "Content-Type": "application/json",
+          "Accept": "text/event-stream"
+        },
+        body: JSON.stringify({
+          model: cfg.model,
+          messages: [
+            { role: "system", content: publicSystemPrompt },
+            { role: "user", content: userMessage }
+          ],
+          temperature: 0.35,
+          top_p: 0.8,
+          max_tokens: 1800,
+          stream: true
+        })
+      }
+    );
 
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body.message || `Falha na interpretação (${response.status}).`);
+      const raw = await response.text();
+      let message = `Falha na interpretação (${response.status}).`;
+
+      try {
+        const body = JSON.parse(raw);
+        message =
+          body?.detail ||
+          body?.message ||
+          body?.error?.message ||
+          message;
+      } catch {}
+
+      throw new Error(message);
     }
 
     if (!response.body) {
-      throw new Error("Streaming indisponível neste navegador.");
+      throw new Error("O navegador não recebeu um fluxo da API.");
     }
+
+    if (label) label.textContent = "INTERPRETAÇÃO EM CONSTRUÇÃO";
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
 
-    const consumeEvent = (block) => {
-      let event = "message";
-      let data = "";
-
-      for (const line of block.split(/
-?
-/)) {
-        if (line.startsWith("event:")) event = line.slice(6).trim();
-        if (line.startsWith("data:")) data += line.slice(5).trim();
-      }
-
-      if (!data) return;
-
-      let eventData;
-      try { eventData = JSON.parse(data); }
-      catch { return; }
-
-      if (event === "ready") {
-        if (label) label.textContent = "INTERPRETAÇÃO EM CONSTRUÇÃO";
-        if (text) text.textContent = "A leitura foi iniciada. Aguardando o primeiro trecho…";
-        return;
-      }
-
-      if (event === "token" && typeof eventData.text === "string") {
-        if (firstToken) {
-          firstToken = false;
-          accumulated = "";
-          if (label) label.textContent = "INTERPRETAÇÃO EM TEMPO REAL";
-          if (button) button.textContent = "Interpretando…";
-        }
-
-        accumulated += eventData.text;
-        if (text) text.textContent = accumulated;
-        return;
-      }
-
-      if (event === "done") {
-        if (label) label.textContent = "INTERPRETAÇÃO CONCLUÍDA";
-        return;
-      }
-
-      if (event === "error") {
-        throw new Error(eventData.message || "A interpretação foi interrompida.");
-      }
-    };
-
     while (true) {
       const { value, done } = await reader.read();
-
-      if (done) {
-        if (buffer.trim()) consumeEvent(buffer);
-        break;
-      }
+      if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split(/?
+/);
+      buffer = lines.pop() || "";
 
-      let boundary;
-      while ((boundary = buffer.indexOf("
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
 
-")) !== -1) {
-        const block = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-        consumeEvent(block);
+        const data = line.slice(5).trim();
+        if (!data) continue;
+
+        if (data === "[DONE]") {
+          if (label) label.textContent = "INTERPRETAÇÃO CONCLUÍDA";
+          continue;
+        }
+
+        let chunk;
+        try { chunk = JSON.parse(data); }
+        catch { continue; }
+
+        const part = chunk?.choices?.[0]?.delta?.content;
+
+        if (typeof part === "string" && part) {
+          if (firstToken) {
+            firstToken = false;
+            accumulated = "";
+            if (label) label.textContent = "INTERPRETAÇÃO EM TEMPO REAL";
+            if (button) button.textContent = "Interpretando…";
+          }
+
+          accumulated += part;
+          if (text) text.textContent = accumulated;
+        }
       }
     }
 
     if (!accumulated.trim()) {
-      throw new Error("A interpretação terminou sem conteúdo.");
+      throw new Error("A API terminou sem retornar texto.");
     }
 
     if (label) label.textContent = "INTERPRETAÇÃO CONCLUÍDA";
   } catch (error) {
     console.error(error);
-
     if (label) label.textContent = "LEITURA INTERROMPIDA";
+
     if (text) {
+      const corsHint =
+        error instanceof TypeError
+          ? " O navegador pode ter bloqueado a chamada direta por CORS."
+          : "";
+
       text.textContent =
         accumulated ||
-        ("Não foi possível concluir a interpretação agora. " +
-          (error?.message || "Tente novamente."));
+        `Não foi possível concluir a interpretação. ${error?.message || ""}${corsHint}`;
     }
   } finally {
     if (button) {
