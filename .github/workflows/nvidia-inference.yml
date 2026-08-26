@@ -110,6 +110,7 @@ jobs:
           exit 1
 
       - name: Smoke test
+        timeout-minutes: 4
         timeout-minutes: 2
         env:
           LIVE_NVIDIA_TEST: ${{ inputs.live_test == true && '1' || '0' }}
