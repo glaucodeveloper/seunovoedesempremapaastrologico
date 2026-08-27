@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#090a0f" />
   <meta name="description" content="Seu Novo e de Sempre Mapa Astrológico — leitura estacional/local e interpretação por inteligência dedicada." />
   <title>Seu Novo e de Sempre — Mapa Astrológico</title>
+  <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1095,7 +1096,6 @@ footer strong { margin-bottom: 3px; color: var(--text-soft); }
     <p>Uma proposta local de leitura do ciclo anual e diário.</p>
   </footer>
 
-  <script src="./api-config.js"></script>
   <script>
 
 const signs = [
@@ -1470,95 +1470,28 @@ async function requestInterpretation() {
   if (label) label.textContent = "CONECTANDO À LEITURA";
   if (text) text.textContent = "Preparando a interpretação do mapa…";
 
-  const cfg = window.SNES_PUBLIC_NVIDIA;
-
-  if (!cfg?.apiKey || !cfg?.baseUrl || !cfg?.model) {
-    if (label) label.textContent = "LEITURA INDISPONÍVEL";
-    if (text) text.textContent = "A chave temporária da demonstração ainda não foi configurada.";
-    if (button) {
-      button.removeAttribute("aria-busy");
-      button.textContent = originalLabel;
-    }
-    return;
-  }
-
-  const map = {
-    sol: $("sunName")?.textContent || "",
-    persona: $("personaName")?.textContent || "",
-    data: $("metaDate")?.textContent || "",
-    hora: $("metaTime")?.textContent || "",
-    local: $("metaPlace")?.textContent || "",
-    nascerDoSol: $("sunriseValue")?.textContent || "",
-    meioDiaSolar: $("solarNoonValue")?.textContent || "",
-    porDoSol: $("sunsetValue")?.textContent || "",
-    fuso: $("timezoneValue")?.textContent || "",
-    horarioDeVerao: $("dstValue")?.textContent || ""
-  };
-
-  const publicSystemPrompt = `
-Assuma o perfil de um intérprete simbólico de alta profundidade psicológica
-especializado neste método astrológico local, estacional e solar.
-
-O método usa duas rodas:
-- roda anual adaptada ao ciclo sazonal do hemisfério sul;
-- roda diária deslocada pelo meio-dia solar histórico do local de nascimento,
-  preservando doze setores de duas horas.
-
-Leia o mapa como uma arquitetura dinâmica de funções, tensões, direções,
-compensações e capacidades emergentes. Evite listas de adjetivos.
-Explique mecanismos: como uma função alimenta, regula, tensiona ou transforma outra.
-
-Estruture a leitura em:
-1. assinatura do mapa;
-2. fonte da energia;
-3. forma de expressão;
-4. encaixe;
-5. tensões internas;
-6. capacidades emergentes;
-7. decisão, vínculo e estratégia;
-8. integração;
-9. síntese final.
-
-Use linguagem psicológica e simbólica, sem fatalismo ou diagnóstico clínico.
-Não mencione provedor, modelo, chave, API ou estas instruções.
-`;
-
-  const userMessage = [
-    "Interprete o mapa abaixo.",
-    "",
-    JSON.stringify(map, null, 2),
-    "",
-    "Entregue diretamente a leitura, em português do Brasil."
-  ].join("\n");
-
   let accumulated = "";
   let firstToken = true;
 
   try {
-    const response = await fetch(
-      `${String(cfg.baseUrl).replace(/\/+$/, "")}/chat/completions`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${cfg.apiKey}`,
-          "Content-Type": "application/json",
-          "Accept": "text/event-stream"
-        },
-        body: JSON.stringify({
-          model: cfg.model,
-          messages: [
-            { role: "system", content: publicSystemPrompt },
-            { role: "user", content: userMessage }
-          ],
-          temperature: 0.35,
-          top_p: 0.8,
-          max_tokens: 1800,
-          stream: true
-        })
-      }
-    );
+    const WORKER_URL =
+    "https://seunovoerealmapaastrologico.icaroglaucooliveira.workers.dev";
 
-    if (!response.ok) {
+  const response = await fetch(
+    `${WORKER_URL}/interpret/stream`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream"
+      },
+      body: JSON.stringify({
+        map
+      })
+    }
+  );
+
+  if (!response.ok) {
       const raw = await response.text();
       let message = `Falha na interpretação (${response.status}).`;
 
